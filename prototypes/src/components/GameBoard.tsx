@@ -96,38 +96,88 @@ function Cell({
 export function GameBoard() {
   const [gameBoard, setGameBoard] =
     useState<typeof initialGameBoard>(initialGameBoard);
-  const [updated, setUpdated] = useState(0);
+  const [updatedCount, setUpdatedCount] = useState(0);
   const handleDragEnd: DragDropEventHandlers["onDragEnd"] = ({ operation }) => {
-    console.log({ operation });
-
     if (!operation.source || !operation.target) return;
+
+    const sourceOriginalColor = operation.source?.data.color;
+    const targetOriginalColor = operation.target?.data.color;
+    const targetNewColor = sourceOriginalColor;
+    const sourceNewColor = targetOriginalColor;
+
     let newGameBoard = gameBoard;
+
     // set the source to the target
     const sourceRowCoord = operation.source?.data.identity[0];
     const sourceCellCoord = operation.source?.data.identity[1];
-    const sourceNewColor = operation.target?.data.color;
-    newGameBoard[sourceRowCoord][sourceCellCoord] = sourceNewColor;
 
     // set the target to the source
     const targetRowCoord = operation.target?.data.identity[0];
     const targetCellCoord = operation.target?.data.identity[1];
-    const targetNewColor = operation.source?.data.color;
+
+    newGameBoard[sourceRowCoord][sourceCellCoord] = sourceNewColor;
     newGameBoard[targetRowCoord][targetCellCoord] = targetNewColor;
 
-    console.log({
-      gameBoard,
-      newGameBoard,
-      sourceRowCoord,
-      sourceCellCoord,
-      sourceNewColor,
-      //
-      targetRowCoord,
-      targetCellCoord,
-      targetNewColor,
-    });
     setGameBoard(newGameBoard);
-    setUpdated(updated + 1);
+
+    // updating to rerender the board for now
+    setUpdatedCount(updatedCount + 1);
+
+    // beginning work on checking for new matches
+
+    // starting with the target cell
+
+    let directionSourceWasDragged = "invalid";
+    if (targetRowCoord > sourceRowCoord) {
+      directionSourceWasDragged = "down";
+    } else if (targetRowCoord < sourceRowCoord) {
+      directionSourceWasDragged = "up";
+    } else {
+      // horizontal move
+      if (targetCellCoord > sourceCellCoord) {
+        directionSourceWasDragged = "right";
+      } else {
+        directionSourceWasDragged = "left";
+      }
+    }
+
+    const MAX_ROWS = gameBoard.length;
+    const MAX_COLS = gameBoard[0].length;
+    const validTargetAbove = targetRowCoord - 1 >= 0;
+    const validTargetToLeft = targetCellCoord - 1 >= 0;
+    const validTargetBelow = targetRowCoord + 1 < MAX_ROWS;
+    const validTargetToRight = targetCellCoord + 1 < MAX_COLS;
+
+    console.log({
+      validTargetAbove,
+      validTargetBelow,
+      validTargetToLeft,
+      validTargetToRight,
+    });
+
+    // todo: technically we could save some time by using the directionSourceWasDragged to shortcut the colors
+    let colorAboveDragged =
+      validTargetAbove && newGameBoard[targetRowCoord - 1][targetCellCoord];
+    let colorLeftOfDragged =
+      validTargetToLeft && newGameBoard[targetRowCoord][targetCellCoord - 1];
+    let colorRightOfDragged =
+      validTargetToRight && newGameBoard[targetRowCoord][targetCellCoord + 1];
+    let colorBelowDragged =
+      validTargetBelow && newGameBoard[targetRowCoord + 1][targetCellCoord];
+
+    console.log({
+      colorAboveDragged,
+      colorBelowDragged,
+      colorRightOfDragged,
+      colorLeftOfDragged,
+      directionSourceWasDragged,
+    });
+    // are any cells touching the cell to up, down, left, right the same color?
+    // if so, is the next cell in that direction also the same color? and so on
   };
+
+  // todo: rerenders
+  useEffect(() => {}, [updatedCount]);
 
   return (
     <div className="w-75 h-75 bg-white min-h-full min-w-full">
