@@ -21,6 +21,84 @@ const initialGameBoard = [
   ["green", "blue", "red"],
 ];
 
+const findMatches = (
+  origin: number[],
+  gameBoard: string[][],
+  originColor: string,
+  direction: "horizontal" | "vertical",
+) => {
+  // ex. start at 2,2 in a 3,3 -- we need to check: 1,2 & 2,1 & 2,3 & 3,2
+  const numberOfRows = gameBoard.length;
+  const numberOfColumns = gameBoard[0].length;
+  // cells to clear
+
+  const x = origin[0];
+  const y = origin[1];
+
+  if (direction === "vertical") {
+    const verticalMatches: number[][] = [];
+    // check upward if we aren't at the top
+    if (x > 0) {
+      let upX = x - 1;
+      while (upX >= 0) {
+        const checking = gameBoard[upX][y];
+        if (checking === originColor) {
+          verticalMatches.push([upX, y]);
+          upX--;
+        } else {
+          break;
+        }
+      }
+    }
+    // check down if we aren't at the bottom
+    if (x < numberOfRows) {
+      let downX = x + 1;
+      while (downX < numberOfRows) {
+        const checking = gameBoard[downX][y];
+        if (checking === originColor) {
+          verticalMatches.push([downX, y]);
+          downX++;
+        } else {
+          break;
+        }
+      }
+    }
+    return [origin, ...verticalMatches];
+  } else {
+    const horizontalMatches: number[][] = [];
+
+    // check left if we aren't at the left
+    if (y > 0) {
+      let upY = y - 1;
+      while (upY >= 0) {
+        const checking = gameBoard[x][upY];
+        if (checking === originColor) {
+          horizontalMatches.push([x, upY]);
+          upY--;
+        } else {
+          break;
+        }
+      }
+    }
+
+    // check right if we aren't at the right
+    if (y < numberOfColumns - 1) {
+      let rightY = y + 1;
+      while (rightY < numberOfColumns) {
+        const checking = gameBoard[x][rightY];
+        if (checking === originColor) {
+          horizontalMatches.push([x, rightY]);
+          rightY++;
+        } else {
+          break;
+        }
+      }
+    }
+
+    return [origin, ...horizontalMatches];
+  }
+};
+
 const calculateAcceptable = (coordinates: number[], identity: number[]) => {
   // same row
   if (coordinates[0] === identity[0]) {
@@ -97,6 +175,7 @@ export function GameBoard() {
   const [gameBoard, setGameBoard] =
     useState<typeof initialGameBoard>(initialGameBoard);
   const [updatedCount, setUpdatedCount] = useState(0);
+  const [userPoints, setUserPoints] = useState(0);
   const handleDragEnd: DragDropEventHandlers["onDragEnd"] = ({ operation }) => {
     if (!operation.source || !operation.target) return;
 
@@ -105,7 +184,7 @@ export function GameBoard() {
     const targetNewColor = sourceOriginalColor;
     const sourceNewColor = targetOriginalColor;
 
-    let newGameBoard = gameBoard;
+    const newGameBoard = gameBoard.map((row) => [...row]);
 
     // set the source to the target
     const sourceRowCoord = operation.source?.data.identity[0];
@@ -118,66 +197,68 @@ export function GameBoard() {
     newGameBoard[sourceRowCoord][sourceCellCoord] = sourceNewColor;
     newGameBoard[targetRowCoord][targetCellCoord] = targetNewColor;
 
-    setGameBoard(newGameBoard);
+    const verticalMatchesForTarget = findMatches(
+      [targetRowCoord, targetCellCoord],
+      newGameBoard,
+      targetNewColor,
+      "vertical",
+    );
+    const horizontalMatchesForTarget = findMatches(
+      [targetRowCoord, targetCellCoord],
+      newGameBoard,
+      targetNewColor,
+      "horizontal",
+    );
 
-    // updating to rerender the board for now
-    setUpdatedCount(updatedCount + 1);
+    const verticalMatchesForSource = findMatches(
+      [sourceRowCoord, sourceCellCoord],
+      newGameBoard,
+      sourceNewColor,
+      "vertical",
+    );
 
-    // beginning work on checking for new matches
+    const horizontalMatchesForSource = findMatches(
+      [sourceRowCoord, sourceCellCoord],
+      newGameBoard,
+      sourceNewColor,
+      "horizontal",
+    );
 
-    // starting with the target cell
-
-    let directionSourceWasDragged = "invalid";
-    if (targetRowCoord > sourceRowCoord) {
-      directionSourceWasDragged = "down";
-    } else if (targetRowCoord < sourceRowCoord) {
-      directionSourceWasDragged = "up";
-    } else {
-      // horizontal move
-      if (targetCellCoord > sourceCellCoord) {
-        directionSourceWasDragged = "right";
-      } else {
-        directionSourceWasDragged = "left";
-      }
+    if (
+      horizontalMatchesForSource.length < 3 &&
+      verticalMatchesForSource.length < 3 &&
+      horizontalMatchesForTarget.length < 3 &&
+      verticalMatchesForTarget.length < 3
+    ) {
+      return;
     }
 
-    const MAX_ROWS = gameBoard.length;
-    const MAX_COLS = gameBoard[0].length;
-    const validTargetAbove = targetRowCoord - 1 >= 0;
-    const validTargetToLeft = targetCellCoord - 1 >= 0;
-    const validTargetBelow = targetRowCoord + 1 < MAX_ROWS;
-    const validTargetToRight = targetCellCoord + 1 < MAX_COLS;
+    setGameBoard(newGameBoard);
 
-    console.log({
-      validTargetAbove,
-      validTargetBelow,
-      validTargetToLeft,
-      validTargetToRight,
-    });
+    setTimeout(() => {
+      let cellsToClear = [];
+      if (horizontalMatchesForSource.length > 2) {
+        cellsToClear.push(...horizontalMatchesForSource);
+      }
+      if (verticalMatchesForSource.length > 2) {
+        cellsToClear.push(...verticalMatchesForSource);
+      }
+      if (horizontalMatchesForTarget.length > 2) {
+        cellsToClear.push(...horizontalMatchesForTarget);
+      }
+      if (verticalMatchesForTarget.length > 2) {
+        cellsToClear.push(...verticalMatchesForTarget);
+      }
 
-    // todo: technically we could save some time by using the directionSourceWasDragged to shortcut the colors
-    let colorAboveDragged =
-      validTargetAbove && newGameBoard[targetRowCoord - 1][targetCellCoord];
-    let colorLeftOfDragged =
-      validTargetToLeft && newGameBoard[targetRowCoord][targetCellCoord - 1];
-    let colorRightOfDragged =
-      validTargetToRight && newGameBoard[targetRowCoord][targetCellCoord + 1];
-    let colorBelowDragged =
-      validTargetBelow && newGameBoard[targetRowCoord + 1][targetCellCoord];
+      const clearedBoard = newGameBoard.map((row) => [...row]);
+      cellsToClear.forEach((cell) => {
+        clearedBoard[cell[0]][cell[1]] = "black";
+      });
 
-    console.log({
-      colorAboveDragged,
-      colorBelowDragged,
-      colorRightOfDragged,
-      colorLeftOfDragged,
-      directionSourceWasDragged,
-    });
-    // are any cells touching the cell to up, down, left, right the same color?
-    // if so, is the next cell in that direction also the same color? and so on
+      setUserPoints(cellsToClear.length);
+      setGameBoard(clearedBoard);
+    }, 1000);
   };
-
-  // todo: rerenders
-  useEffect(() => {}, [updatedCount]);
 
   return (
     <div className="w-75 h-75 bg-white min-h-full min-w-full">
@@ -196,6 +277,9 @@ export function GameBoard() {
           );
         })}
       </DragDropProvider>
+      <div>
+        <span>points: {userPoints}</span>
+      </div>
     </div>
   );
 }
