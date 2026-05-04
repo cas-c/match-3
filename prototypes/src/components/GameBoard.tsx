@@ -160,6 +160,9 @@ function Cell({
           "w-25 h-25",
           "border-2",
           `bg-${color}-500`,
+          // "bg-red-500",
+          // "bg-blue-500",
+          // "bg-green-500",
           isDragging && "opacity-50",
         )}
       >
@@ -235,28 +238,106 @@ export function GameBoard() {
 
     setGameBoard(newGameBoard);
 
-    setTimeout(() => {
-      let cellsToClear = [];
-      if (horizontalMatchesForSource.length > 2) {
-        cellsToClear.push(...horizontalMatchesForSource);
-      }
-      if (verticalMatchesForSource.length > 2) {
-        cellsToClear.push(...verticalMatchesForSource);
-      }
-      if (horizontalMatchesForTarget.length > 2) {
-        cellsToClear.push(...horizontalMatchesForTarget);
-      }
-      if (verticalMatchesForTarget.length > 2) {
-        cellsToClear.push(...verticalMatchesForTarget);
-      }
-
-      const clearedBoard = newGameBoard.map((row) => [...row]);
-      cellsToClear.forEach((cell) => {
+    const clearAndFillAndCheckAgain = (
+      cellsForClearing: number[][],
+      boardToClear: string[][],
+    ) => {
+      const clearedBoard = boardToClear.map((row) => [...row]);
+      cellsForClearing.forEach((cell) => {
         clearedBoard[cell[0]][cell[1]] = "black";
       });
 
-      setUserPoints(cellsToClear.length);
+      setUserPoints((p) => p + cellsForClearing.length);
       setGameBoard(clearedBoard);
+
+      setTimeout(() => {
+        const filledBoard = clearedBoard.map((row) => [...row]);
+        cellsForClearing.forEach((cell) => {
+          const randomSeed = Math.floor(Math.random() * 10);
+          filledBoard[cell[0]][cell[1]] =
+            randomSeed % 2 ? (randomSeed > 5 ? "red" : "green") : "blue";
+        });
+
+        setGameBoard(filledBoard);
+
+        const newCellsToClear: number[][] = [];
+        cellsForClearing.forEach((cell) => {
+          const newMatchesH = findMatches(
+            [cell[0], cell[1]],
+            filledBoard,
+            filledBoard[cell[0]][cell[1]],
+            "horizontal",
+          );
+
+          const newMatchesV = findMatches(
+            [cell[0], cell[1]],
+            filledBoard,
+            filledBoard[cell[0]][cell[1]],
+            "vertical",
+          );
+
+          if (newMatchesH.length > 2) {
+            newCellsToClear.push(
+              ...newMatchesH.filter(
+                (h) =>
+                  !newCellsToClear.find(
+                    (h2) => h[0] === h2[0] && h[1] === h2[1],
+                  ),
+              ),
+            );
+          }
+          if (newMatchesV.length > 2) {
+            newCellsToClear.push(
+              ...newMatchesV.filter(
+                (v) =>
+                  !newCellsToClear.find(
+                    (v2) => v[0] === v2[0] && v[1] === v2[1],
+                  ),
+              ),
+            );
+          }
+
+          if (newMatchesH.length < 3 && newMatchesV.length < 3) {
+            console.log("287: no new matches found");
+            return;
+          } else {
+            console.log(
+              "found new matches.  i guess we should do something about it?",
+              {
+                newMatchesH,
+                newMatchesV,
+                newCellsToClear,
+              },
+            );
+
+            setTimeout(() => {
+              clearAndFillAndCheckAgain(newCellsToClear, filledBoard);
+            }, 1000);
+          }
+        });
+      }, 1000);
+    };
+
+    setTimeout(() => {
+      let cellsToClear = [];
+      if (horizontalMatchesForSource.length > 2) {
+        console.log("horizontalMatchesForSource", horizontalMatchesForSource);
+        cellsToClear.push(...horizontalMatchesForSource);
+      }
+      if (verticalMatchesForSource.length > 2) {
+        console.log("verticalMatchesForSource", verticalMatchesForSource);
+        cellsToClear.push(...verticalMatchesForSource);
+      }
+      if (horizontalMatchesForTarget.length > 2) {
+        console.log("horizontalMatchesForTarget", horizontalMatchesForTarget);
+        cellsToClear.push(...horizontalMatchesForTarget);
+      }
+      if (verticalMatchesForTarget.length > 2) {
+        console.log("verticalMatchesForTarget", verticalMatchesForTarget);
+        cellsToClear.push(...verticalMatchesForTarget);
+      }
+
+      clearAndFillAndCheckAgain(cellsToClear, newGameBoard);
     }, 1000);
   };
 
